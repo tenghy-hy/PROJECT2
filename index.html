@@ -1,1 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作項目 02：作業準備 - 測驗系統</title>
+    <style>
+        :root { 
+            --main: #0984e3; 
+            --bg: #f0f2f5; 
+            --win: #00b894; 
+            --lose: #d63031; 
+            --warning: #fdcb6e;
+            --text: #2d3436;
+        }
+        body { 
+            font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; 
+            background: var(--bg); 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-start; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 20px 0;
+        }
+        #game-box { 
+            background: white; 
+            width: 95%; 
+            max-width: 650px; 
+            padding: 25px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            text-align: center; 
+        }
+        
+        /* 頂部資訊欄 */
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        #timer-text { color: var(--lose); font-size: 1.1em; }
 
+        .rule-box { 
+            background: #fff9db; 
+            border: 1px solid #ffe066; 
+            padding: 15px; 
+            border-radius: 10px; 
+            text-align: left; 
+            font-size: 0.95em; 
+            margin-bottom: 20px; 
+            line-height: 1.6;
+        }
+        .setup-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #444; }
+        select, input[type="date"] { 
+            width: 100%; padding: 12px; font-size: 1em; border-radius: 8px; border: 2px solid #ddd; box-sizing: border-box;
+        }
+
+        /* 題目區 */
+        .q-text { font-size: 1.2em; font-weight: bold; color: var(--text); margin-bottom: 15px; text-align: left; line-height: 1.5; }
+        .options-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        .opt-btn { 
+            padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; background: white; 
+            cursor: pointer; font-size: 1.05em; text-align: left; transition: 0.2s; 
+        }
+        .opt-btn.selected { background: var(--main) !important; color: white; border-color: var(--main); }
+
+        /* 按鈕 */
+        .nav-btns { display: flex; justify-content: space-between; margin-top: 25px; gap: 10px; }
+        .action-btn { 
+            flex: 1; padding: 12px; font-size: 1.1em; border: none; border-radius: 50px; 
+            cursor: pointer; font-weight: bold; transition: 0.3s;
+        }
+        #start-btn { background: var(--main); color: white; width: 100%; }
+        #start-btn:disabled { background: #ccc; }
+        .prev-btn { background: #636e72; color: white; }
+        .next-btn { background: var(--main); color: white; }
+        .submit-btn { background: var(--win); color: white; }
+
+        /* 結算與回顧 */
+        .hidden { display: none; }
+        #final-score { font-size: 4em; color: var(--main); margin: 0; }
+        .status-msg { margin: 15px 0; font-weight: bold; padding: 12px; border-radius: 8px; }
+        .pass { background: #e6fffa; color: var(--win); border: 1px solid var(--win); }
+        .fail { background: #fff5f5; color: var(--lose); border: 1px solid var(--lose); }
+
+        #review-area { margin-top: 25px; text-align: left; border-top: 2px solid #eee; padding-top: 20px; }
+        .review-item { margin-bottom: 20px; padding: 15px; background: #fcfcfc; border-radius: 10px; border-left: 5px solid #ddd; }
+        .review-item.is-correct { border-left-color: var(--win); }
+        .review-item.is-wrong { border-left-color: var(--lose); }
+        .review-q { font-weight: bold; margin-bottom: 8px; }
+        .review-ans { font-size: 0.9em; margin: 4px 0; }
+        .text-correct { color: var(--win); font-weight: bold; }
+        .text-wrong { color: var(--lose); font-weight: bold; }
+
+        #debug-log { background: #222; color: #00ff00; padding: 8px; font-size: 11px; margin-top: 15px; border-radius: 5px; text-align: left; }
+    </style>
+</head>
+<body>
+
+<div id="game-box">
+    <!-- 開始畫面 -->
+    <div id="start-screen">
+        <h2 style="color: var(--main); margin-top: 0;">工作項目 02：作業準備</h2>
+        <div class="rule-box">
+            <strong>📝 測驗規則說明：</strong><br>
+            1. 每次測驗隨機抽取 <strong>20 題</strong>，每題 <strong>5 分</strong>。<br>
+            2. 測驗總時間 <strong>20 分鐘</strong>。<br>
+            3. 成績達 <strong>80 分</strong> 以上才會送出紀錄。<br>
+            4. 結束後可查看錯題與正確答案。
+        </div>
+        <div class="setup-group">
+            <label>測試日期：</label>
+            <input type="date" id="quiz-date">
+        </div>
+        <div class="setup-group">
+            <label>選擇座號：</label>
+            <select id="player-no"></select>
+        </div>
+        <button id="start-btn" class="action-btn" onclick="initGame()" disabled>載入題庫中...</button>
+        <div id="debug-log">> 系統準備中...</div>
+    </div>
+
+    <!-- 測驗區域 -->
+    <div id="quiz-area" class="hidden">
+        <div class="info-bar">
+            <span id="q-progress">第 1 / 20 題</span>
+            <span id="timer-text">剩餘 20:00</span>
+        </div>
+        <div id="q-text" class="q-text"></div>
+        <div class="options-grid" id="options-area">
+            <button class="opt-btn" onclick="selectOption(1)" id="opt1"></button>
+            <button class="opt-btn" onclick="selectOption(2)" id="opt2"></button>
+            <button class="opt-btn" onclick="selectOption(3)" id="opt3"></button>
+            <button class="opt-btn" onclick="selectOption(4)" id="opt4"></button>
+        </div>
+        <div class="nav-btns">
+            <button class="action-btn prev-btn" id="prev-btn" onclick="moveQuestion(-1)">上一題</button>
+            <button class="action-btn next-btn" id="next-btn" onclick="moveQuestion(1)">下一題</button>
+            <button class="action-btn submit-btn hidden" id="submit-btn" onclick="confirmSubmit()">提交考卷</button>
+        </div>
+    </div>
+
+    <!-- 結算畫面 -->
+    <div id="end-screen" class="hidden">
+        <h3>測驗結束</h3>
+        <p id="result-info"></p>
+        <h1 id="final-score">0</h1><p>分</p>
+        <div id="status-msg" class="status-msg"></div>
+
+        <button class="action-btn next-btn" id="show-review-btn" onclick="toggleReview()">查看題目回顧</button>
+        
+        <div id="review-area" class="hidden">
+            <h4 style="margin-top:0">📝 題目回顧</h4>
+            <div id="review-list"></div>
+        </div>
+
+        <div id="rank-box" style="margin-top:20px; text-align:left; background:#f9f9f9; padding:15px; border-radius:10px;">
+            <div style="text-align:center; font-weight:bold; color: #555; margin-bottom: 10px;">🏆 全班前五名</div>
+            <div id="rank-content">載入中...</div>
+        </div>
+        <button class="action-btn prev-btn" style="margin-top:20px;" onclick="location.reload()">返回首頁</button>
+    </div>
+</div>
+
+<script>
+    const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTaKApjd61Cc4pPeBW3gBknoHdaCkKavZnjSriMPVnWSNx6tbQyksw4fX9DDEo6zlSevqNQ4vvPkqMl/pub?gid=1437660801&single=true&output=csv";
+    const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScOCC3XH910Aj2izzG6Un-9P0y5g8KlbrCDxd1-LvsT1uSRow/formResponse";
+    const ID_NO = "entry.380705505";
+    const ID_SCORE = "entry.330260248";
+    const RANK_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS5zUnJgXdBNUHfIcgtktxutd4Jls3fwf48I9KXK4XNwNMpuXcRXfzNaKjCH35mbHBMwucKSYVKc3w9/pub?output=csv";
+
+    let allQuestions = [], gameQuestions = [], userAnswers = [];
+    let currentIdx = 0, totalSeconds = 20 * 60, gameTimer = null;
+
+    // UI 初始化
+    const sel = document.getElementById('player-no');
+    const dateInput = document.getElementById('quiz-date');
+    dateInput.value = new Date().toISOString().split('T')[0];
+    for(let i=1; i<=36; i++){
+        let o = document.createElement('option'); o.value = i; o.textContent = i + " 號";
+        sel.appendChild(o);
+    }
+
+    function log(txt) { document.getElementById('debug-log').innerText = "> " + txt; }
+
+    async function loadData() {
+        try {
+            const res = await fetch(`${SHEET_CSV}&t=${Date.now()}`);
+            const text = await res.text();
+            const lines = text.split(/\r?\n/);
+            const temp = [];
+            lines.forEach((line) => {
+                const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
+                if (cols.length >= 6 && ['1','2','3','4'].includes(cols[1])) {
+                    temp.push({ q: cols[0], opts: [cols[2], cols[3], cols[4], cols[5]], a: parseInt(cols[1]) });
+                }
+            });
+            if (temp.length > 0) {
+                allQuestions = temp;
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('start-btn').innerText = "開始測驗";
+                log("已載入 " + allQuestions.length + " 題。");
+            }
+        } catch (e) { log("載入失敗：" + e.message); }
+    }
+
+    function initGame() {
+        if(!sel.value) return alert("請選擇座號");
+        gameQuestions = [...allQuestions].sort(() => Math.random() - 0.5).slice(0, 20);
+        userAnswers = new Array(20).fill(null);
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('quiz-area').classList.remove('hidden');
+        showQuestion();
+        startGlobalTimer();
+    }
+
+    function showQuestion() {
+        const q = gameQuestions[currentIdx];
+        document.getElementById('q-progress').innerText = `第 ${currentIdx + 1} / 20 題`;
+        document.getElementById('q-text').innerText = (currentIdx + 1) + ". " + q.q;
+        for(let i=1; i<=4; i++) {
+            const btn = document.getElementById('opt' + i);
+            btn.innerText = `(${i}) ${q.opts[i-1]}`;
+            btn.className = userAnswers[currentIdx] === i ? 'opt-btn selected' : 'opt-btn';
+        }
+        document.getElementById('prev-btn').style.visibility = (currentIdx === 0) ? 'hidden' : 'visible';
+        const isLast = currentIdx === 19;
+        document.getElementById('next-btn').classList.toggle('hidden', isLast);
+        document.getElementById('submit-btn').classList.toggle('hidden', !isLast);
+    }
+
+    function selectOption(val) {
+        userAnswers[currentIdx] = val;
+        showQuestion();
+    }
+
+    function moveQuestion(step) {
+        currentIdx += step;
+        showQuestion();
+    }
+
+    function startGlobalTimer() {
+        gameTimer = setInterval(() => {
+            totalSeconds--;
+            const m = Math.floor(totalSeconds / 60), s = totalSeconds % 60;
+            document.getElementById('timer-text').innerText = `剩餘 ${m}:${s.toString().padStart(2, '0')}`;
+            if (totalSeconds <= 0) { clearInterval(gameTimer); calculateScore(); }
+        }, 1000);
+    }
+
+    function confirmSubmit() {
+        const un = userAnswers.filter(a => a === null).length;
+        if (confirm(un > 0 ? `還有 ${un} 題未寫，確定交卷？` : "確定要交卷嗎？")) calculateScore();
+    }
+
+    function calculateScore() {
+        clearInterval(gameTimer);
+        let correct = 0;
+        let reviewHtml = "";
+
+        gameQuestions.forEach((q, i) => {
+            const isCorrect = userAnswers[i] === q.a;
+            if (isCorrect) correct++;
+            
+            reviewHtml += `
+                <div class="review-item ${isCorrect ? 'is-correct' : 'is-wrong'}">
+                    <div class="review-q">${i+1}. ${q.q}</div>
+                    <div class="review-ans">您的答案：<span class="${isCorrect ? 'text-correct' : 'text-wrong'}">(${userAnswers[i] || '未答'}) ${userAnswers[i] ? q.opts[userAnswers[i]-1] : ''}</span></div>
+                    ${!isCorrect ? `<div class="review-ans">正確答案：<span class="text-correct">(${q.a}) ${q.opts[q.a-1]}</span></div>` : ''}
+                </div>`;
+        });
+
+        const score = correct * 5;
+        document.getElementById('quiz-area').classList.add('hidden');
+        document.getElementById('end-screen').classList.remove('hidden');
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('result-info').innerText = `${dateInput.value} | ${sel.value}號`;
+        document.getElementById('review-list').innerHTML = reviewHtml;
+
+        const status = document.getElementById('status-msg');
+        if (score >= 80) {
+            status.innerText = "🎉 達標 80 分！成績已上傳。";
+            status.className = "status-msg pass";
+            fetch(`${FORM_URL}?${ID_NO}=${encodeURIComponent(sel.value)}&${ID_SCORE}=${score}&submit=Submit`, { mode: 'no-cors' });
+        } else {
+            status.innerText = "⚠️ 未達 80 分，紀錄不予送出。";
+            status.className = "status-msg fail";
+        }
+        loadRank();
+    }
+
+    function toggleReview() {
+        const area = document.getElementById('review-area');
+        const btn = document.getElementById('show-review-btn');
+        const isHidden = area.classList.toggle('hidden');
+        btn.innerText = isHidden ? "查看題目回顧" : "隱藏題目回顧";
+        if (!isHidden) area.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function loadRank() {
+        try {
+            const res = await fetch(`${RANK_CSV}?t=${Date.now()}`);
+            const text = await res.text();
+            const lines = text.split(/\r?\n/).slice(1);
+            let data = lines.map(l => {
+                const c = l.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(item => item.replace(/^"|"$/g, '').trim());
+                return { n: c[1], s: parseInt(c[2]) || 0 };
+            }).filter(i => i.n).sort((a, b) => b.s - a.s);
+            document.getElementById('rank-content').innerHTML = data.slice(0, 5).map((it, i) => `
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom: 1px dashed #ddd;">
+                    <span>${i+1}. ${it.n} 號</span><span style="color:var(--main); font-weight:bold;">${it.s} 分</span>
+                </div>`).join('') || "尚無資料";
+        } catch (e) {}
+    }
+
+    window.onload = loadData;
+</script>
+</body>
+</html>
